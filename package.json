@@ -1,0 +1,14 @@
+{
+  "name": "fonqa",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Fonqa (ፎንቃ) — Telegram Dating App",
+  "scripts": {
+    "dev": "docker-compose up --build",
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "db:push": "cd backend && npx prisma db push",
+    "db:studio": "cd backend && npx prisma studio",
+    "setup:bot": "node scripts/setup-bot.js",
+    "build:frontend": "cd frontend && npm run build"
+  }
+}

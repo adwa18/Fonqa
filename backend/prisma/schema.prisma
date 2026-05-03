@@ -1,0 +1,422 @@
+// prisma/schema.prisma — Fonqa (ፎንቃ)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Gender {
+  male
+  female
+}
+
+enum GenderPreference {
+  male
+  female
+  any
+}
+
+enum LookingFor {
+  marriage
+  relationship
+  casual
+  friendship
+  all
+}
+
+enum KidsStatus {
+  none
+  have_kids
+  want_kids
+  dont_want_kids
+  open
+}
+
+enum EducationLevel {
+  high_school
+  some_college
+  bachelors
+  masters
+  phd
+  trade_school
+  other
+}
+
+enum Religion {
+  christian
+  muslim
+  jewish
+  hindu
+  buddhist
+  orthodox
+  catholic
+  protestant
+  other
+  none
+}
+
+enum ProfileVisibility {
+  public
+  matches_only
+}
+
+enum SubscriptionTier {
+  free
+  premium
+}
+
+enum PaymentStatus {
+  pending
+  approved
+  rejected
+}
+
+enum PaymentMethod {
+  cbe_birr
+  telebirr
+  bank_transfer
+}
+
+enum VerificationStatus {
+  none
+  pending
+  approved
+  rejected
+}
+
+enum ReportReason {
+  spam
+  fake
+  inappropriate
+  harassment
+  other
+}
+
+enum ReportStatus {
+  pending
+  reviewed
+  resolved
+  dismissed
+}
+
+// ─── User ────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  telegramId    String    @unique
+  username      String?
+  firstName     String
+  lastName      String?
+  photoUrl      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastSeen      DateTime  @default(now())
+  isActive      Boolean   @default(true)
+  isBanned      Boolean   @default(false)
+  banReason     String?
+
+  // Referral
+  referralCode  String    @unique @default(cuid())
+  referredById  String?
+  referredBy    User?     @relation("Referrals", fields: [referredById], references: [id])
+  referrals     User[]    @relation("Referrals")
+  referralCount Int       @default(0)
+
+  // Relations
+  profile         Profile?
+  photos          Photo[]
+  preferences     Preference?
+  subscription    Subscription?
+  verification    Verification?
+  sentSwipes      Swipe[]        @relation("SwipeSender")
+  receivedSwipes  Swipe[]        @relation("SwipeReceiver")
+  matchesA        Match[]        @relation("MatchUserA")
+  matchesB        Match[]        @relation("MatchUserB")
+  sentMessages    Message[]      @relation("MessageSender")
+  reportsMade     Report[]       @relation("ReportReporter")
+  reportsReceived Report[]       @relation("ReportReported")
+  blocksGiven     Block[]        @relation("BlockBlocker")
+  blocksReceived  Block[]        @relation("BlockBlocked")
+  boosts          Boost[]
+  profileViews    ProfileView[]  @relation("ViewedUser")
+  viewsMade       ProfileView[]  @relation("ViewerUser")
+  paymentRequests PaymentRequest[]
+  notifications   Notification[]
+
+  @@map("users")
+}
+
+// ─── Profile ─────────────────────────────────────────────────────────────────
+
+model Profile {
+  id              String            @id @default(cuid())
+  userId          String            @unique
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Basic
+  age             Int
+  gender          Gender
+  bio             String?           @db.VarChar(600)
+
+  // Extended fields
+  occupation      String?           @db.VarChar(120)
+  education       EducationLevel?
+  religion        Religion?
+  kidsStatus      KidsStatus        @default(none)
+  kidsCount       Int?
+  height          Int?              // cm
+
+  // Intent
+  lookingFor      LookingFor        @default(all)
+
+  // Location
+  latitude        Float?
+  longitude       Float?
+  city            String?
+  country         String?
+  locationLabel   String?           // e.g. "Addis Ababa, Ethiopia"
+
+  // Interests
+  interests       String[]
+
+  // Settings
+  visibility      ProfileVisibility @default(public)
+  profileComplete Boolean           @default(false)
+
+  // Verification
+  isVerified      Boolean           @default(false)
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@map("profiles")
+}
+
+// ─── Photos ──────────────────────────────────────────────────────────────────
+
+model Photo {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url         String
+  publicId    String
+  order       Int       @default(0)
+  isMain      Boolean   @default(false)
+  isSelfie    Boolean   @default(false)  // verification selfie
+  createdAt   DateTime  @default(now())
+
+  @@map("photos")
+}
+
+// ─── Preferences ─────────────────────────────────────────────────────────────
+
+model Preference {
+  id                  String           @id @default(cuid())
+  userId              String           @unique
+  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ageMin              Int              @default(18)
+  ageMax              Int              @default(50)
+  genderPreference    GenderPreference @default(any)
+  maxDistance         Int?             // null = anywhere
+  lookingFor          LookingFor       @default(all)
+  religionPreference  Religion?
+  educationPreference EducationLevel?
+  updatedAt           DateTime         @updatedAt
+
+  @@map("preferences")
+}
+
+// ─── Subscription ─────────────────────────────────────────────────────────────
+
+model Subscription {
+  id            String           @id @default(cuid())
+  userId        String           @unique
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier          SubscriptionTier @default(free)
+  // Free trial tracking
+  trialStarted  DateTime?
+  trialEnds     DateTime?
+  trialUsed     Boolean          @default(false)
+  // Premium tracking
+  premiumStarts DateTime?
+  premiumEnds   DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@map("subscriptions")
+}
+
+// ─── Payment Requests (manual ETB payments) ───────────────────────────────────
+
+model PaymentRequest {
+  id            String        @id @default(cuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+  amount        Int           @default(200)   // ETB
+  method        PaymentMethod
+  reference     String?       // transaction reference provided by user
+  screenshotUrl String?       // uploaded payment screenshot
+  status        PaymentStatus @default(pending)
+  durationDays  Int           @default(30)
+  adminNote     String?
+  reviewedAt    DateTime?
+  reviewedBy    String?       // admin telegramId
+  createdAt     DateTime      @default(now())
+
+  @@map("payment_requests")
+}
+
+// ─── Verification (anti-catfish selfie) ──────────────────────────────────────
+
+model Verification {
+  id            String             @id @default(cuid())
+  userId        String             @unique
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gesture       String             // random gesture user must mimic
+  selfieUrl     String?
+  selfiePublicId String?
+  status        VerificationStatus @default(none)
+  aiScore       Float?             // Google Vision face detection score
+  adminNote     String?
+  reviewedAt    DateTime?
+  reviewedBy    String?
+  triggeredAt   DateTime           @default(now())
+  createdAt     DateTime           @default(now())
+
+  @@map("verifications")
+}
+
+// ─── Swipes ──────────────────────────────────────────────────────────────────
+
+model Swipe {
+  id          String    @id @default(cuid())
+  senderId    String
+  receiverId  String
+  sender      User      @relation("SwipeSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver    User      @relation("SwipeReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  direction   String    // "like" | "pass" | "superlike"
+  createdAt   DateTime  @default(now())
+
+  // No unique constraint — users CAN re-swipe
+  @@index([senderId, receiverId])
+  @@index([receiverId])
+  @@map("swipes")
+}
+
+// ─── Matches ─────────────────────────────────────────────────────────────────
+
+model Match {
+  id        String    @id @default(cuid())
+  userAId   String
+  userBId   String
+  userA     User      @relation("MatchUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB     User      @relation("MatchUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  isActive  Boolean   @default(true)
+  messages  Message[]
+
+  @@unique([userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
+  @@map("matches")
+}
+
+// ─── Messages ────────────────────────────────────────────────────────────────
+
+model Message {
+  id          String    @id @default(cuid())
+  matchId     String
+  match       Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  senderId    String
+  sender      User      @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  content     String    @db.VarChar(2000)
+  type        String    @default("text")
+  readAt      DateTime?
+  isFiltered  Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  @@index([matchId])
+  @@map("messages")
+}
+
+// ─── Profile Views ────────────────────────────────────────────────────────────
+
+model ProfileView {
+  id         String   @id @default(cuid())
+  viewerId   String
+  viewedId   String
+  viewer     User     @relation("ViewerUser", fields: [viewerId], references: [id])
+  viewed     User     @relation("ViewedUser", fields: [viewedId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@index([viewedId])
+  @@map("profile_views")
+}
+
+// ─── Boosts ───────────────────────────────────────────────────────────────────
+
+model Boost {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String   // "daily" | "paid" | "referral"
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("boosts")
+}
+
+// ─── Reports ─────────────────────────────────────────────────────────────────
+
+model Report {
+  id          String       @id @default(cuid())
+  reporterId  String
+  reportedId  String
+  reporter    User         @relation("ReportReporter", fields: [reporterId], references: [id])
+  reported    User         @relation("ReportReported", fields: [reportedId], references: [id])
+  reason      ReportReason
+  details     String?      @db.VarChar(500)
+  status      ReportStatus @default(pending)
+  createdAt   DateTime     @default(now())
+  reviewedAt  DateTime?
+  reviewNote  String?
+
+  @@index([reportedId])
+  @@map("reports")
+}
+
+// ─── Blocks ───────────────────────────────────────────────────────────────────
+
+model Block {
+  id          String   @id @default(cuid())
+  blockerId   String
+  blockedId   String
+  blocker     User     @relation("BlockBlocker", fields: [blockerId], references: [id])
+  blocked     User     @relation("BlockBlocked", fields: [blockedId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@map("blocks")
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String   // "match" | "like" | "message" | "visit" | "premium" | "verification"
+  payload   Json
+  sent      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("notifications")
+}

@@ -1,0 +1,47 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fonqa
+      POSTGRES_PASSWORD: fonqa_dev
+      POSTGRES_DB: fonqa
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U fonqa']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    working_dir: /app/backend
+    command: sh -c "npx prisma db push && node src/server.js"
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DATABASE_URL: postgresql://fonqa:fonqa_dev@db:5432/fonqa
+      SKIP_AUTH: 'true'
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+      WEBAPP_URL: http://localhost:5173
+      BOT_USERNAME: fonqa_bot
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

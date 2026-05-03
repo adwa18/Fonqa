@@ -1,0 +1,48 @@
+# render.yaml
+services:
+  - type: web
+    name: fonqa
+    runtime: docker
+    rootDir: .
+    dockerfilePath: ./backend/Dockerfile
+    plan: free
+    region: frankfurt
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fonqa-db
+          property: connectionString
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: BOT_USERNAME
+        sync: false                   # e.g. fonqa_bot
+      - key: ADMIN_TELEGRAM_IDS
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: GOOGLE_VISION_API_KEY
+        sync: false
+      - key: WEBAPP_URL
+        sync: false                   # https://fonqa.onrender.com
+      - key: CBE_ACCOUNT
+        sync: false
+      - key: TELEBIRR_ACCOUNT
+        sync: false
+      - key: BANK_ACCOUNT
+        sync: false
+
+databases:
+  - name: fonqa-db
+    plan: free
+    databaseName: fonqa
+    user: fonqa
+    region: frankfurt

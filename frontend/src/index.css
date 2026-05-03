@@ -1,0 +1,157 @@
+/* src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand:       #e91e63;
+  --brand-dark:  #c2185b;
+  --brand-light: #f06292;
+  --gold:        #ffca28;
+  --bg:          #0d0d0d;
+  --surface:     #1a1a1a;
+  --surface-2:   #242424;
+  --surface-3:   #2e2e2e;
+  --text:        #f0f0f0;
+  --text-muted:  #9e9e9e;
+  --border:      rgba(255,255,255,0.08);
+  --safe-bottom: env(safe-area-inset-bottom, 16px);
+  --safe-top:    env(safe-area-inset-top, 0px);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body, #root {
+  height: 100%; overflow: hidden;
+  background: var(--tg-theme-bg-color, var(--bg));
+  color: var(--tg-theme-text-color, var(--text));
+  font-family: Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Fonqa brand gradient */
+.fonqa-gradient {
+  background: linear-gradient(135deg, #c2185b 0%, #e91e63 50%, #f06292 100%);
+}
+.fonqa-text {
+  background: linear-gradient(135deg, #e91e63, #f06292);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Amharic script support */
+.amharic { font-family: 'Noto Serif Ethiopic', serif; }
+
+/* ── Surfaces */
+.surface   { background: var(--surface); }
+.surface-2 { background: var(--surface-2); }
+.tg-bg     { background: var(--tg-theme-bg-color, var(--bg)); }
+.tg-hint   { color: var(--tg-theme-hint-color, var(--text-muted)); }
+.tg-text   { color: var(--tg-theme-text-color, var(--text)); }
+
+/* ── Card stack */
+.card-stack { position: relative; width: 100%; height: 100%; }
+.swipe-card {
+  position: absolute; inset: 0;
+  border-radius: 20px; overflow: hidden;
+  touch-action: none; user-select: none; cursor: grab;
+  transform-origin: center bottom;
+}
+.swipe-card:active { cursor: grabbing; }
+
+/* ── Like/Nope stamps */
+.like-stamp, .nope-stamp {
+  position: absolute; top: 40px;
+  font-size: 1.6rem; font-weight: 700;
+  padding: 5px 14px; border-radius: 8px;
+  border-width: 3px; border-style: solid;
+  text-transform: uppercase; letter-spacing: 2px;
+  opacity: 0; pointer-events: none; transition: opacity 0.1s;
+}
+.like-stamp  { left: 20px; color: #4ade80; border-color: #4ade80; transform: rotate(-15deg); }
+.nope-stamp  { right: 20px; color: #f87171; border-color: #f87171; transform: rotate(15deg); }
+
+/* ── Glass overlay on cards */
+.glass {
+  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 55%, transparent 100%);
+}
+
+/* ── Bottom nav */
+.bottom-nav { padding-bottom: calc(var(--safe-bottom) + 4px); }
+.input-bar  { padding-bottom: var(--safe-bottom); }
+
+/* ── Chat scroll */
+.chat-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.chat-scroll::-webkit-scrollbar { display: none; }
+.custom-scroll::-webkit-scrollbar { width: 3px; }
+.custom-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* ── Interest pill */
+.interest-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 12px; border-radius: 999px;
+  font-size: 13px; font-weight: 500;
+  background: rgba(233,30,99,0.1);
+  color: var(--brand-light);
+  border: 1px solid rgba(233,30,99,0.2);
+  cursor: pointer; transition: all 0.15s;
+}
+.interest-pill.selected {
+  background: var(--brand); color: #fff;
+  border-color: var(--brand);
+}
+
+/* ── Premium badge */
+.premium-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 600;
+  background: linear-gradient(135deg, #c2185b, #e91e63);
+  color: #fff;
+}
+
+/* ── Verified badge */
+.verified-badge {
+  display: inline-flex; align-items: center; gap: 2px;
+  color: #60a5fa; font-size: 14px;
+}
+
+/* ── Animations */
+@keyframes pulse-ring {
+  0%   { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+.pulse-ring { animation: pulse-ring 1.4s ease-out infinite; }
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.slide-up { animation: slide-up 0.3s cubic-bezier(0.32, 0.72, 0, 1); }
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fade-in 0.22s ease; }
+
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.shimmer::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+  animation: shimmer 1.6s infinite;
+}
+
+@keyframes bounce-dot {
+  0%, 80%, 100% { transform: translateY(0); }
+  40%            { transform: translateY(-6px); }
+}
+.typing-dot { animation: bounce-dot 1.2s ease-in-out infinite; }
