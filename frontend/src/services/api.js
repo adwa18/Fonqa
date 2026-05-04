@@ -7,7 +7,7 @@ const api = axios.create({ baseURL: BASE, timeout: 15000 });
 
 api.interceptors.request.use((config) => {
   const initData = window.Telegram?.WebApp?.initData || '';
-  if (initData) config.headers['x-telegram-init-iata'] = initData;
+  if (initData) config.headers['x-telegram-init-data'] = initData;
   // Pass referral code from deep link on first request
   const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param || '';
   if (startParam?.startsWith('ref_')) {
