@@ -6,13 +6,25 @@ const BASE = import.meta.env.VITE_API_URL || '/api';
 const api = axios.create({ baseURL: BASE, timeout: 15000 });
 
 api.interceptors.request.use((config) => {
+  // Ensure headers object always exists before we write to it
+  config.headers = config.headers || {};
+
   const initData = window.Telegram?.WebApp?.initData || '';
-  if (initData) config.headers['X-Telegram-Init-Data'] = initData;
-  // Pass referral code from deep link on first request
+  if (initData) {
+    config.headers['x-telegram-init-data'] = initData;
+  }
+
   const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param || '';
   if (startParam?.startsWith('ref_')) {
     config.headers['x-referral-code'] = startParam.replace('ref_', '');
   }
+
+  // For FormData let the browser set Content-Type (with boundary).
+  // Delete any manually set value so axios does not override it.
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
+
   return config;
 });
 
@@ -56,8 +68,10 @@ export const uploadAPI = {
   uploadPhoto: (file, onProgress) => {
     const fd = new FormData();
     fd.append('photo', file);
+    // Do NOT set Content-Type manually — axios/browser must set it
+    // so the multipart boundary is included correctly.
+    // The request interceptor still adds x-telegram-init-data.
     return api.post('/uploads/photo', fd, {
-      
       onUploadProgress: e => onProgress?.(Math.round(e.loaded * 100 / e.total)),
     });
   },
@@ -66,16 +80,17 @@ export const uploadAPI = {
 };
 
 export const premiumAPI = {
-  status:       ()     => api.get('/premium/status'),
-  submitPayment: (fd)  => api.post('/premium/request', fd, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  status:        ()   => api.get('/premium/status'),
+  submitPayment: (fd) => api.post('/premium/request', fd),
+  // fd must be a FormData object — do not set Content-Type header
 };
 
 export const verifyAPI = {
-  status:       ()     => api.get('/verify/status'),
+  status:       () => api.get('/verify/status'),
   submitSelfie: (file) => {
     const fd = new FormData();
     fd.append('selfie', file);
-    return api.post('/verify/selfie', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+    return api.post('/verify/selfie', fd);
   },
 };
 
