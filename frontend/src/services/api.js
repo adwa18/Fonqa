@@ -7,7 +7,7 @@ const api = axios.create({ baseURL: BASE, timeout: 15000 });
 
 api.interceptors.request.use((config) => {
   const initData = window.Telegram?.WebApp?.initData || '';
-  if (initData) config.headers['x-telegram-init-data'] = initData;
+  if (initData) config.headers['x-telegram-init-iata'] = initData;
   // Pass referral code from deep link on first request
   const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param || '';
   if (startParam?.startsWith('ref_')) {
@@ -57,7 +57,7 @@ export const uploadAPI = {
     const fd = new FormData();
     fd.append('photo', file);
     return api.post('/uploads/photo', fd, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      
       onUploadProgress: e => onProgress?.(Math.round(e.loaded * 100 / e.total)),
     });
   },
