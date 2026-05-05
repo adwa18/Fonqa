@@ -1,77 +1,60 @@
-// src/routes/uploads.js
+// src/routes/auth.js
 const router = require('express').Router();
-const multer = require('multer');
-const cloudinary = require('cloudinary').v2;
 const { authenticate } = require('../middleware/auth');
-const { moderateImage } = require('../services/vision');
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+// POST /api/auth/login
+router.post('/login', authenticate, async (req, res) => {
+  const { dbUser } = req;
+  res.json({
+    user: {
+      id:           dbUser.id,
+      telegramId:   dbUser.telegramId,
+      firstName:    dbUser.firstName,
+      lastName:     dbUser.lastName,
+      username:     dbUser.username,
+      photoUrl:     dbUser.photoUrl,
+      referralCode: dbUser.referralCode,
+    },
+    hasProfile:   !!dbUser.profile?.profileComplete,
+    subscription: dbUser.subscription,
+  });
 });
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => file.mimetype.startsWith('image/') ? cb(null, true) : cb(new Error('Images only')),
-});
-
-router.post('/photo', authenticate, upload.single('photo'), async (req, res, next) => {
+// GET /api/auth/me
+router.get('/me', authenticate, async (req, res, next) => {
   try {
     const prisma = req.app.get('prisma');
-    const userId = req.dbUser.id;
-    if (!req.file) return res.status(400).json({ error: 'No file' });
-
-    const existingCount = await prisma.photo.count({ where: { userId, isSelfie: false } });
-    if (existingCount >= 6) return res.status(400).json({ error: 'Maximum 6 photos allowed' });
-
-    const result = await new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { folder: `fonqa/${userId}`, transformation: [{ width: 800, height: 1000, crop: 'fill', gravity: 'face', quality: 'auto' }, { fetch_format: 'auto' }] },
-        (err, r) => err ? reject(err) : resolve(r)
-      );
-      stream.end(req.file.buffer);
+    const user = await prisma.user.findUnique({
+      where:   { id: req.dbUser.id },
+      include: {
+        profile:      true,
+        photos:       { where: { isSelfie: false }, orderBy: { order: 'asc' } },
+        preferences:  true,
+        subscription: true,
+        verification: true,
+      },
     });
-
-    // NSFW moderation
-    const modResult = await moderateImage(result.secure_url);
-    if (!modResult.safe) {
-      await cloudinary.uploader.destroy(result.public_id);
-      return res.status(400).json({ error: 'Photo failed content moderation. Please use an appropriate image.' });
-    }
-
-    const isFirst = existingCount === 0;
-    const photo = await prisma.photo.create({
-      data: { userId, url: result.secure_url, publicId: result.public_id, order: existingCount, isMain: isFirst },
-    });
-
-    res.json({ photo });
+    res.json({ user });
   } catch (err) { next(err); }
 });
 
-router.delete('/photo/:photoId', authenticate, async (req, res, next) => {
-  try {
-    const prisma = req.app.get('prisma');
-    const photo = await prisma.photo.findUnique({ where: { id: req.params.photoId } });
-    if (!photo || photo.userId !== req.dbUser.id) return res.status(404).json({ error: 'Not found' });
-    await cloudinary.uploader.destroy(photo.publicId);
-    await prisma.photo.delete({ where: { id: photo.id } });
-    if (photo.isMain) {
-      const next = await prisma.photo.findFirst({ where: { userId: req.dbUser.id, isSelfie: false }, orderBy: { order: 'asc' } });
-      if (next) await prisma.photo.update({ where: { id: next.id }, data: { isMain: true } });
-    }
-    res.json({ success: true });
-  } catch (err) { next(err); }
-});
-
-router.patch('/photo/:photoId/main', authenticate, async (req, res, next) => {
-  try {
-    const prisma = req.app.get('prisma');
-    await prisma.photo.updateMany({ where: { userId: req.dbUser.id }, data: { isMain: false } });
-    await prisma.photo.update({ where: { id: req.params.photoId }, data: { isMain: true } });
-    res.json({ success: true });
-  } catch (err) { next(err); }
+// GET /api/auth/debug  — ONLY available in non-production
+// Echoes back what the server actually received so you can confirm
+// the initData header is arriving correctly.
+router.get('/debug', (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  res.json({
+    receivedHeaders: {
+      'x-telegram-init-data': req.headers['x-telegram-init-data'] || '(missing)',
+      'x-referral-code':      req.headers['x-referral-code']      || '(none)',
+      'content-type':         req.headers['content-type']          || '(none)',
+    },
+    botTokenSet:    !!process.env.TELEGRAM_BOT_TOKEN,
+    botTokenLength: process.env.TELEGRAM_BOT_TOKEN?.trim().length,
+    nodeEnv:        process.env.NODE_ENV,
+  });
 });
 
 module.exports = router;
