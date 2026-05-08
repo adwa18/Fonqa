@@ -2,8 +2,9 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { adminAPI } from '../services/api';
+import BackButton from '../components/BackButton';
 
-const TABS = ['Stats', 'Payments', 'Verifications', 'Reports', 'Users'];
+const TABS = ['Stats', 'Payments', 'Verifications', 'Reports', 'Users', 'Photos'];
 
 export default function AdminPage() {
   const [tab, setTab] = useState('Stats');
@@ -26,6 +27,7 @@ export default function AdminPage() {
       Verifications: () => adminAPI.verifications().then(d => setVerifications(d.verifications || [])),
       Reports:       () => adminAPI.reports('pending').then(d => setReports(d.reports || [])),
       Users:         () => adminAPI.users(1, search).then(d => setUsers(d.users || [])),
+      Photos:        () => adminAPI.flaggedPhotos().then(d => setFlagged(d.photos || [])),
     };
     load[tab]?.()?.catch(() => {})?.finally(() => setLoading(false));
   }, [tab, search]);
@@ -53,9 +55,13 @@ export default function AdminPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-5 pt-4 pb-2 flex-shrink-0">
-        <h1 className="text-xl font-bold tg-text">Admin Dashboard</h1>
-        <p className="text-xs tg-hint amharic">Fonqa — ፎንቃ</p>
+      <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b flex-shrink-0"
+        style={{ borderColor: 'var(--border)' }}>
+        <BackButton to="/profile" label="Profile" />
+        <div>
+          <h1 className="text-base font-semibold tg-text">Admin Dashboard</h1>
+          <p className="text-xs tg-hint amharic">Fonqa — ፎንቃ</p>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -213,6 +219,38 @@ export default function AdminPage() {
               </Card>
             ))}
           </>
+        )}
+
+        {/* ── Photos / Moderation (B, D) */}
+        {tab === 'Photos' && (
+          loading ? <Spinner /> : flaggedPhotos.length === 0
+            ? <Empty label="No flagged photos" />
+            : flaggedPhotos.map(p => (
+              <Card key={p.id}>
+                <div className="flex items-center gap-3">
+                  <img src={p.url} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold tg-text">{p.user?.firstName}</p>
+                    <p className="text-xs text-red-400 mt-0.5">Flag: {p.flagReason}</p>
+                    <p className="text-xs tg-hint">{new Date(p.createdAt).toLocaleDateString()}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Btn label="✅ Mark safe" color="#16a34a"
+                    onClick={async () => {
+                      await adminAPI.approvePhoto(p.id);
+                      setFlagged(ps => ps.filter(x => x.id !== p.id));
+                      toast.success('Marked safe');
+                    }} />
+                  <Btn label="🗑️ Remove" color="#dc2626"
+                    onClick={async () => {
+                      await adminAPI.removePhoto(p.id);
+                      setFlagged(ps => ps.filter(x => x.id !== p.id));
+                      toast.success('Removed');
+                    }} />
+                </div>
+              </Card>
+            ))
         )}
       </div>
     </div>
