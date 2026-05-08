@@ -202,3 +202,40 @@ router.post('/verifications/:id/reject', async (req, res, next) => {
 });
 
 module.exports = router;
+
+// ── Photo moderation (B, D)
+router.get('/photos/flagged', async (req, res, next) => {
+  try {
+    const prisma = req.app.get('prisma');
+    const photos = await prisma.photo.findMany({
+      where: { isFlagged: true, isApproved: false, isSelfie: false },
+      include: { user: { select: { id: true, firstName: true, telegramId: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    res.json({ photos });
+  } catch (err) { next(err); }
+});
+
+router.post('/photos/:id/approve', async (req, res, next) => {
+  try {
+    const prisma = req.app.get('prisma');
+    await prisma.photo.update({
+      where: { id: req.params.id },
+      data: { isApproved: true, isFlagged: false },
+    });
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+router.delete('/photos/:id', async (req, res, next) => {
+  try {
+    const prisma = req.app.get('prisma');
+    const cloudinary = require('cloudinary').v2;
+    const photo = await prisma.photo.findUnique({ where: { id: req.params.id } });
+    if (!photo) return res.status(404).json({ error: 'Not found' });
+    await cloudinary.uploader.destroy(photo.publicId).catch(() => {});
+    await prisma.photo.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
