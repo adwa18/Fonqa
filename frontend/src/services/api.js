@@ -45,7 +45,9 @@ export const profileAPI = {
   me:                ()       => api.get('/profiles/me'),
   getById:           (id)     => api.get(`/profiles/${id}`),
   updatePreferences: (data)   => api.patch('/profiles/preferences', data),
-  deleteAccount:     ()       => api.delete('/profiles/me'),
+  deleteAccount:     ()     => api.delete(`/profiles/me`),
+  deactivate:        ()     => api.post(`/profiles/deactivate`),
+  reactivate:        ()     => api.post(`/profiles/reactivate`),
 };
 
 export const swipeAPI = {
@@ -116,6 +118,9 @@ export const adminAPI = {
   verifications:       ()         => api.get('/admin/verifications'),
   approveVerification: (id)       => api.post(`/admin/verifications/${id}/approve`),
   rejectVerification:  (id, r)    => api.post(`/admin/verifications/${id}/reject`, { reason: r }),
+  flaggedPhotos:       ()         => api.get('/admin/photos/flagged'),
+  approvePhoto:        (id)       => api.post(`/admin/photos/${id}/approve`),
+  removePhoto:         (id)       => api.delete(`/admin/photos/${id}`),
 };
 
 export default api;
