@@ -1,4 +1,5 @@
-// src/services/matching.js — Fonqa matching engine
+// src/services/matching.js — Fonqa v3
+// (F) Gender-based discovery: males see females only, females see males only
 const { PrismaClient } = require('@prisma/client');
 const logger = require('../utils/logger');
 const prisma = new PrismaClient();
@@ -43,11 +44,9 @@ function activityScore(lastSeen) {
   return 0.0;
 }
 
-async function isBoostActive(userId) {
-  const boost = await prisma.boost.findFirst({
-    where: { userId, expiresAt: { gt: new Date() } },
-  });
-  return !!boost;
+// (F) Determine which gender to show based on user's own gender
+function oppositeGender(gender) {
+  return gender === 'male' ? 'female' : 'male';
 }
 
 async function getCandidates(userId) {
@@ -60,7 +59,9 @@ async function getCandidates(userId) {
 
   if (!me || !myProfile || !prefs) throw new Error('Profile or preferences incomplete');
 
-  // Blocks only (no swipe exclusion — users can re-see profiles)
+  // (F) Always show opposite gender regardless of preference setting
+  const targetGender = oppositeGender(myProfile.gender);
+
   const blocks = await prisma.block.findMany({
     where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
     select: { blockerId: true, blockedId: true },
@@ -70,9 +71,6 @@ async function getCandidates(userId) {
     ...blocks.map(b => b.blockerId === userId ? b.blockedId : b.blockerId),
   ]);
 
-  const genderFilter = prefs.genderPreference === 'any' ? undefined : { equals: prefs.genderPreference };
-
-  // Location filter — reduced bias: only apply if maxDistance is set AND user has location
   const locationFilter = (prefs.maxDistance && myProfile.latitude)
     ? {
         latitude:  { gte: myProfile.latitude  - prefs.maxDistance / 90, lte: myProfile.latitude  + prefs.maxDistance / 90 },
@@ -82,28 +80,28 @@ async function getCandidates(userId) {
 
   const candidates = await prisma.user.findMany({
     where: {
-      id: { notIn: [...excludeIds] },
-      isActive: true,
-      isBanned: false,
+      id:           { notIn: [...excludeIds] },
+      isActive:     true,
+      isBanned:     false,
+      isDeactivated: false,           // (I) exclude deactivated
       profile: {
         profileComplete: true,
-        visibility: { in: ['public'] },
-        age: { gte: prefs.ageMin, lte: prefs.ageMax },
-        gender: genderFilter,
+        visibility:      { in: ['public'] },
+        gender:          targetGender, // (F) always opposite gender
+        age:             { gte: prefs.ageMin, lte: prefs.ageMax },
         ...(prefs.religionPreference ? { religion: prefs.religionPreference } : {}),
         ...locationFilter,
       },
     },
     include: {
       profile: true,
-      photos: { where: { isSelfie: false }, orderBy: { order: 'asc' }, take: 4 },
-      boosts: { where: { expiresAt: { gt: new Date() } }, take: 1 },
+      photos:  { where: { isSelfie: false, isApproved: true }, orderBy: { order: 'asc' }, take: 4 },
+      boosts:  { where: { expiresAt: { gt: new Date() } }, take: 1 },
     },
     take: CANDIDATE_POOL,
     orderBy: { lastSeen: 'desc' },
   });
 
-  // Score
   const scored = candidates.map(c => {
     const dist = (myProfile.latitude && c.profile?.latitude)
       ? haversineKm(myProfile.latitude, myProfile.longitude, c.profile.latitude, c.profile.longitude)
@@ -116,12 +114,12 @@ async function getCandidates(userId) {
     const aScore = activityScore(c.lastSeen);
     const dScore = dist !== null && prefs.maxDistance
       ? Math.max(0, 1 - dist / (prefs.maxDistance * 1.5))
-      : 0.4;  // no location = moderate score (reduce proximity bias)
-    const boosted = c.boosts.length > 0 ? 0.25 : 0;
+      : 0.4;
+    const boosted  = c.boosts.length > 0 ? 0.25 : 0;
     const verified = c.profile?.isVerified ? 0.1 : 0;
 
-    const total = iScore * 0.3 + dScore * 0.15 + cScore * 0.25 + aScore * 0.15 + boosted + verified
-      + Math.random() * 0.15; // intentional shuffle to reduce proximity clustering
+    const total = iScore * 0.3 + dScore * 0.15 + cScore * 0.25 + aScore * 0.15
+      + boosted + verified + Math.random() * 0.15;
 
     return { user: c, score: total, distanceKm: dist ? Math.round(dist) : null };
   }).filter(Boolean);
@@ -129,71 +127,114 @@ async function getCandidates(userId) {
   scored.sort((a, b) => b.score - a.score);
 
   return scored.slice(0, SERVE_BATCH).map(({ user: u, distanceKm }) => ({
-    id: u.id,
-    firstName: u.firstName,
-    age: u.profile?.age,
-    gender: u.profile?.gender,
-    city: u.profile?.city,
+    id:          u.id,
+    firstName:   u.firstName,
+    age:         u.profile?.age,
+    gender:      u.profile?.gender,
+    city:        u.profile?.city,
+    country:     u.profile?.country,
     locationLabel: u.profile?.locationLabel,
-    bio: u.profile?.bio,
-    occupation: u.profile?.occupation,
-    education: u.profile?.education,
-    religion: u.profile?.religion,
-    kidsStatus: u.profile?.kidsStatus,
-    lookingFor: u.profile?.lookingFor,
-    interests: u.profile?.interests || [],
-    photos: u.photos.map(p => p.url),
+    bio:         u.profile?.bio,
+    occupation:  u.profile?.occupation,
+    education:   u.profile?.education,
+    religion:    u.profile?.religion,
+    kidsStatus:  u.profile?.kidsStatus,
+    lookingFor:  u.profile?.lookingFor,
+    interests:   u.profile?.interests || [],
+    photos:      u.photos.map(p => p.url),
     distanceKm,
-    isVerified: u.profile?.isVerified || false,
-    isBoosted: u.boosts.length > 0,
+    isVerified:  u.profile?.isVerified || false,
+    isBoosted:   u.boosts.length > 0,
+    isDeactivated: false,
   }));
 }
 
-// Get users who liked me (everyone can see — no premium gate)
+// (H) "Liked me" — keep entries visible even after match, show status
 async function getWhoLikedMe(userId) {
+  // Get my own gender to find opposite-gender likers only (F)
+  const me = await prisma.profile.findUnique({ where: { userId }, select: { gender: true } });
+  const targetGender = me ? oppositeGender(me.gender) : undefined;
+
   const likes = await prisma.swipe.findMany({
     where: {
       receiverId: userId,
-      direction: { in: ['like', 'superlike'] },
-      // exclude mutual matches (already matched)
+      direction:  { in: ['like', 'superlike'] },
       sender: {
-        matchesA: { none: { userBId: userId } },
-        matchesB: { none: { userAId: userId } },
+        isBanned:     false,
+        isDeactivated: false,
+        ...(targetGender ? { profile: { gender: targetGender } } : {}),
       },
     },
     include: {
       sender: {
         include: {
-          profile: { select: { age: true, city: true, gender: true } },
-          photos: { where: { isMain: true }, take: 1 },
+          profile: { select: { age: true, city: true, gender: true, isVerified: true } },
+          photos:  { where: { isMain: true, isApproved: true }, take: 1 },
         },
       },
     },
     orderBy: { createdAt: 'desc' },
-    take: 50,
+    distinct: ['senderId'],   // latest swipe per sender only
+    take: 100,
   });
 
-  return likes.map(s => ({
-    userId: s.sender.id,
-    firstName: s.sender.firstName,
-    age: s.sender.profile?.age,
-    city: s.sender.profile?.city,
-    photo: s.sender.photos[0]?.url || null,
-    direction: s.direction,
-    likedAt: s.createdAt,
+  // For each liker, determine status
+  const myId = userId;
+  return Promise.all(likes.map(async s => {
+    const sid = s.sender.id;
+    const [uA, uB] = myId < sid ? [myId, sid] : [sid, myId];
+    const match = await prisma.match.findUnique({
+      where: { userAId_userBId: { userAId: uA, userBId: uB } },
+    });
+
+    // Did I already swipe them?
+    const mySwipe = await prisma.swipe.findFirst({
+      where: { senderId: myId, receiverId: sid, direction: { in: ['like', 'superlike'] } },
+    });
+
+    let status = 'liked_you';
+    if (match?.isActive)  status = 'matched';
+    else if (mySwipe)     status = 'you_liked';
+
+    return {
+      userId:    sid,
+      firstName: s.sender.firstName,
+      age:       s.sender.profile?.age,
+      city:      s.sender.profile?.city,
+      photo:     s.sender.photos[0]?.url || null,
+      direction: s.direction,
+      likedAt:   s.createdAt,
+      isVerified: s.sender.profile?.isVerified || false,
+      status,   // "liked_you" | "matched" | "you_liked"
+      matchId:  match?.id || null,
+    };
   }));
 }
 
-// Record swipe — no daily cap
+// (H) Check if user already liked someone — prevent silent duplicates
+async function getLatestSwipe(senderId, receiverId) {
+  return prisma.swipe.findFirst({
+    where:   { senderId, receiverId },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
 async function recordSwipe(senderId, receiverId, direction) {
-  // Allow re-swipe: just insert a new record (no unique constraint)
+  // (H) Check for duplicate like
+  if (direction === 'like' || direction === 'superlike') {
+    const existing = await getLatestSwipe(senderId, receiverId);
+    if (existing && (existing.direction === 'like' || existing.direction === 'superlike')) {
+      return { isMatch: false, alreadyLiked: true };
+    }
+  }
+
   await prisma.swipe.create({ data: { senderId, receiverId, direction } });
 
   if (direction === 'pass') return { isMatch: false };
 
   const mutual = await prisma.swipe.findFirst({
     where: {
-      senderId: receiverId,
+      senderId:  receiverId,
       receiverId: senderId,
       direction: { in: ['like', 'superlike'] },
     },
@@ -205,7 +246,7 @@ async function recordSwipe(senderId, receiverId, direction) {
   const [userAId, userBId] = senderId < receiverId ? [senderId, receiverId] : [receiverId, senderId];
 
   const match = await prisma.match.upsert({
-    where: { userAId_userBId: { userAId, userBId } },
+    where:  { userAId_userBId: { userAId, userBId } },
     update: { isActive: true },
     create: { userAId, userBId },
     include: {
@@ -214,7 +255,7 @@ async function recordSwipe(senderId, receiverId, direction) {
     },
   });
 
-  // Check if verification should be triggered (after 5 matches)
+  // Trigger verification after 5 matches
   const matchCount = await prisma.match.count({
     where: { OR: [{ userAId: senderId }, { userBId: senderId }] },
   });
@@ -223,11 +264,7 @@ async function recordSwipe(senderId, receiverId, direction) {
     if (!existing) {
       const gestures = ['Peace sign ✌️', 'Thumbs up 👍', 'Open hand 🖐️', 'Point up ☝️', 'Wave 👋'];
       await prisma.verification.create({
-        data: {
-          userId: senderId,
-          gesture: gestures[Math.floor(Math.random() * gestures.length)],
-          status: 'none',
-        },
+        data: { userId: senderId, gesture: gestures[Math.floor(Math.random() * gestures.length)], status: 'none' },
       });
     }
   }
@@ -235,4 +272,4 @@ async function recordSwipe(senderId, receiverId, direction) {
   return { isMatch: true, matchId: match.id, match };
 }
 
-module.exports = { getCandidates, recordSwipe, getWhoLikedMe };
+module.exports = { getCandidates, recordSwipe, getWhoLikedMe, getLatestSwipe, oppositeGender };

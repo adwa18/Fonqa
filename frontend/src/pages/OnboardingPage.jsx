@@ -3,9 +3,11 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { Camera, MapPin, ChevronRight } from 'lucide-react';
-import { profileAPI, uploadAPI } from '../services/api';
+import { MapPin, ChevronRight } from 'lucide-react';
+import { profileAPI } from '../services/api';
 import { useTelegram } from '../hooks/useTelegram';
+import CityPicker from '../components/CityPicker';
+import PhotoUploader from '../components/PhotoUploader';
 import useStore from '../store/useStore';
 
 const INTERESTS = [
@@ -65,7 +67,7 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [photos, setPhotos] = useState([]);
-  const [uploading, setUploading] = useState(false);
+  const [showCity, setShowCity] = useState(false);
 
   const [form, setForm] = useState({
     age: '', gender: '', bio: '', occupation: '',
@@ -73,7 +75,6 @@ export default function OnboardingPage() {
     lookingFor: '', city: '', latitude: null, longitude: null,
     locationLabel: '', interests: [], visibility: 'public',
     ageMin: 18, ageMax: 50, maxDistance: null,
-    genderPreference: 'any',
   });
 
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -86,20 +87,7 @@ export default function OnboardingPage() {
     return true;
   };
 
-  const handlePhotoUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    setUploading(true);
-    for (const file of files) {
-      if (photos.length >= 6) break;
-      try {
-        const data = await uploadAPI.uploadPhoto(file);
-        setPhotos(prev => [...prev, data.photo]);
-      } catch (err) {
-        toast.error(err.message || 'Upload failed');
-      }
-    }
-    setUploading(false);
-  };
+
 
   const handleGetLocation = () => {
     if (!navigator.geolocation) return toast.error('Location not available');
@@ -141,9 +129,10 @@ export default function OnboardingPage() {
         visibility: form.visibility,
       });
       await profileAPI.updatePreferences({
-        ageMin: form.ageMin, ageMax: form.ageMax,
+        ageMin:      form.ageMin,
+        ageMax:      form.ageMax,
         maxDistance: form.maxDistance,
-        genderPreference: form.genderPreference,
+        lookingFor:  form.lookingFor || 'all',
       });
       setHasProfile(true);
       haptic.notification('success');
@@ -188,27 +177,8 @@ export default function OnboardingPage() {
             {/* ── Step 0: Photos */}
             {step === 0 && (
               <>
-                <p className="text-sm tg-hint">Add at least 1 photo. Up to 6. Your first photo is your main photo.</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {photos.map((p, i) => (
-                    <div key={p.id} className="aspect-[3/4] rounded-xl overflow-hidden relative">
-                      <img src={p.url} className="w-full h-full object-cover" alt="" />
-                      {i === 0 && <div className="absolute bottom-1 left-1 text-[10px] bg-brand-600 text-white px-1.5 py-0.5 rounded-full">Main</div>}
-                    </div>
-                  ))}
-                  {uploading && (
-                    <div className="aspect-[3/4] rounded-xl bg-gray-800 flex items-center justify-center">
-                      <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  )}
-                  {photos.length < 6 && !uploading && (
-                    <label className="aspect-[3/4] rounded-xl border-2 border-dashed border-gray-700 flex flex-col items-center justify-center cursor-pointer hover:border-brand-500 transition-colors">
-                      <Camera size={24} className="text-gray-500 mb-1" />
-                      <span className="text-xs text-gray-500">Add photo</span>
-                      <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
-                    </label>
-                  )}
-                </div>
+                <p className="text-sm tg-hint mb-3">Add at least 1 photo. Up to 6.</p>
+                <PhotoUploader photos={photos} setPhotos={setPhotos} max={6} />
               </>
             )}
 
@@ -262,14 +232,15 @@ export default function OnboardingPage() {
                 </div>
                 <div>
                   <label className="label-sm">City</label>
-                  <div className="flex gap-2">
-                    <input value={form.city} onChange={e => upd('city', e.target.value)}
-                      placeholder="Addis Ababa, Berlin…" className="fonqa-input flex-1" />
-                    <button onClick={handleGetLocation}
-                      className="px-3 rounded-xl border border-gray-700 text-gray-400">
-                      <MapPin size={18} />
-                    </button>
-                  </div>
+                  <button onClick={() => setShowCity(true)}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm"
+                    style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <MapPin size={16} style={{ color: 'var(--brand)', flexShrink: 0 }} />
+                    <span className="tg-text flex-1">
+                      {form.locationLabel || form.city || 'Pick your city…'}
+                    </span>
+                    <span className="tg-hint text-xs">Search</span>
+                  </button>
                 </div>
               </>
             )}
@@ -369,22 +340,7 @@ export default function OnboardingPage() {
             {/* ── Step 4: Preferences */}
             {step === 4 && (
               <>
-                <div>
-                  <label className="label-sm">Show me</label>
-                  <div className="flex gap-2">
-                    {[['any','Both'], ['male','Men'], ['female','Women']].map(([v, l]) => (
-                      <button key={v} onClick={() => upd('genderPreference', v)}
-                        className="flex-1 py-2.5 rounded-xl text-sm border transition-all"
-                        style={{
-                          background: form.genderPreference === v ? 'var(--brand)' : 'var(--surface)',
-                          borderColor: form.genderPreference === v ? 'var(--brand)' : 'rgba(255,255,255,0.08)',
-                          color: form.genderPreference === v ? '#fff' : 'var(--text-muted)',
-                        }}>
-                        {l}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                {/* Gender preference auto-set by backend based on your gender */}
                 <div>
                   <label className="label-sm">Age range: {form.ageMin}–{form.ageMax}</label>
                   <div className="flex gap-3">
@@ -430,6 +386,22 @@ export default function OnboardingPage() {
             : 'Start Discovering 💕'}
         </button>
       </div>
+
+      {showCity && (
+        <CityPicker
+          value={form.city}
+          onSelect={(loc) => {
+            upd('city',          loc.city          || '');
+            upd('country',       loc.country       || '');
+            upd('countryCode',   loc.countryCode   || '');
+            upd('latitude',      loc.latitude      || null);
+            upd('longitude',     loc.longitude     || null);
+            upd('locationLabel', loc.locationLabel || '');
+            setShowCity(false);
+          }}
+          onClose={() => setShowCity(false)}
+        />
+      )}
 
       <style>{`
         .fonqa-input {

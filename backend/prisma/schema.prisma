@@ -1,4 +1,4 @@
-// prisma/schema.prisma — Fonqa (ፎንቃ)
+// prisma/schema.prisma — Fonqa (ፎንቃ) v3
 
 generator client {
   provider = "prisma-client-js"
@@ -19,7 +19,6 @@ enum Gender {
 enum GenderPreference {
   male
   female
-  any
 }
 
 enum LookingFor {
@@ -121,7 +120,11 @@ model User {
   isBanned      Boolean   @default(false)
   banReason     String?
 
-  // Referral
+  // Soft deactivation (I)
+  isDeactivated   Boolean   @default(false)
+  deactivatedAt   DateTime?
+
+  // Referral (G)
   referralCode  String    @unique @default(cuid())
   referredById  String?
   referredBy    User?     @relation("Referrals", fields: [referredById], references: [id])
@@ -159,37 +162,30 @@ model Profile {
   userId          String            @unique
   user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Basic
   age             Int
   gender          Gender
   bio             String?           @db.VarChar(600)
-
-  // Extended fields
   occupation      String?           @db.VarChar(120)
   education       EducationLevel?
   religion        Religion?
   kidsStatus      KidsStatus        @default(none)
   kidsCount       Int?
-  height          Int?              // cm
+  height          Int?
 
-  // Intent
   lookingFor      LookingFor        @default(all)
 
-  // Location
+  // Location (A)
   latitude        Float?
   longitude       Float?
   city            String?
   country         String?
-  locationLabel   String?           // e.g. "Addis Ababa, Ethiopia"
+  countryCode     String?           // ISO-2 e.g. "ET"
+  locationLabel   String?
 
-  // Interests
   interests       String[]
 
-  // Settings
   visibility      ProfileVisibility @default(public)
   profileComplete Boolean           @default(false)
-
-  // Verification
   isVerified      Boolean           @default(false)
 
   createdAt       DateTime          @default(now())
@@ -201,15 +197,22 @@ model Profile {
 // ─── Photos ──────────────────────────────────────────────────────────────────
 
 model Photo {
-  id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  url         String
-  publicId    String
-  order       Int       @default(0)
-  isMain      Boolean   @default(false)
-  isSelfie    Boolean   @default(false)  // verification selfie
-  createdAt   DateTime  @default(now())
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url             String
+  publicId        String
+  order           Int       @default(0)
+  isMain          Boolean   @default(false)
+  isSelfie        Boolean   @default(false)
+
+  // Moderation fields (B)
+  isFlagged       Boolean   @default(false)
+  flagReason      String?   // "nsfw" | "violence" | "no_face" | "duplicate"
+  moderationData  Json?     // raw Vision API scores
+  isApproved      Boolean   @default(true)
+
+  createdAt       DateTime  @default(now())
 
   @@map("photos")
 }
@@ -222,8 +225,8 @@ model Preference {
   user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   ageMin              Int              @default(18)
   ageMax              Int              @default(50)
-  genderPreference    GenderPreference @default(any)
-  maxDistance         Int?             // null = anywhere
+  genderPreference    GenderPreference @default(female)  // (F) no more "any"
+  maxDistance         Int?
   lookingFor          LookingFor       @default(all)
   religionPreference  Religion?
   educationPreference EducationLevel?
@@ -239,11 +242,9 @@ model Subscription {
   userId        String           @unique
   user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   tier          SubscriptionTier @default(free)
-  // Free trial tracking
   trialStarted  DateTime?
   trialEnds     DateTime?
   trialUsed     Boolean          @default(false)
-  // Premium tracking
   premiumStarts DateTime?
   premiumEnds   DateTime?
   createdAt     DateTime         @default(now())
@@ -252,42 +253,43 @@ model Subscription {
   @@map("subscriptions")
 }
 
-// ─── Payment Requests (manual ETB payments) ───────────────────────────────────
+// ─── Payment Requests ─────────────────────────────────────────────────────────
 
 model PaymentRequest {
   id            String        @id @default(cuid())
   userId        String
   user          User          @relation(fields: [userId], references: [id])
-  amount        Int           @default(200)   // ETB
+  amount        Int           @default(200)
   method        PaymentMethod
-  reference     String?       // transaction reference provided by user
-  screenshotUrl String?       // uploaded payment screenshot
+  reference     String?
+  screenshotUrl String?
   status        PaymentStatus @default(pending)
   durationDays  Int           @default(30)
   adminNote     String?
   reviewedAt    DateTime?
-  reviewedBy    String?       // admin telegramId
+  reviewedBy    String?
   createdAt     DateTime      @default(now())
 
   @@map("payment_requests")
 }
 
-// ─── Verification (anti-catfish selfie) ──────────────────────────────────────
+// ─── Verification ─────────────────────────────────────────────────────────────
 
 model Verification {
-  id            String             @id @default(cuid())
-  userId        String             @unique
-  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  gesture       String             // random gesture user must mimic
-  selfieUrl     String?
+  id             String             @id @default(cuid())
+  userId         String             @unique
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gesture        String
+  selfieUrl      String?
   selfiePublicId String?
-  status        VerificationStatus @default(none)
-  aiScore       Float?             // Google Vision face detection score
-  adminNote     String?
-  reviewedAt    DateTime?
-  reviewedBy    String?
-  triggeredAt   DateTime           @default(now())
-  createdAt     DateTime           @default(now())
+  status         VerificationStatus @default(none)
+  aiScore        Float?
+  hasFace        Boolean?
+  adminNote      String?
+  reviewedAt     DateTime?
+  reviewedBy     String?
+  triggeredAt    DateTime           @default(now())
+  createdAt      DateTime           @default(now())
 
   @@map("verifications")
 }
@@ -303,7 +305,6 @@ model Swipe {
   direction   String    // "like" | "pass" | "superlike"
   createdAt   DateTime  @default(now())
 
-  // No unique constraint — users CAN re-swipe
   @@index([senderId, receiverId])
   @@index([receiverId])
   @@map("swipes")
@@ -365,7 +366,7 @@ model Boost {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
-  type      String   // "daily" | "paid" | "referral"
+  type      String
   expiresAt DateTime
   createdAt DateTime @default(now())
 
@@ -412,7 +413,7 @@ model Notification {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
-  type      String   // "match" | "like" | "message" | "visit" | "premium" | "verification"
+  type      String
   payload   Json
   sent      Boolean  @default(false)
   createdAt DateTime @default(now())

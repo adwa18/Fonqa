@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Camera, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { verifyAPI } from '../services/api';
+import BackButton from '../components/BackButton';
 
 export default function VerifyPage() {
   const [status, setStatus] = useState(null);
@@ -29,7 +30,15 @@ export default function VerifyPage() {
   if (loading) return <div className="flex items-center justify-center h-full"><div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>;
 
   return (
-    <div className="flex flex-col h-full px-5 pt-8">
+    <div className="flex flex-col h-full">
+      {/* Header with back button (C) */}
+      <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b flex-shrink-0"
+        style={{ borderColor: 'var(--border)' }}>
+        <BackButton to="/profile" label="Profile" />
+        <h1 className="text-base font-semibold tg-text flex-1">Verification</h1>
+      </div>
+
+      <div className="flex-1 overflow-y-auto custom-scroll px-5 pt-6">
       <div className="text-center mb-6">
         <Shield size={48} className="mx-auto mb-3" style={{ color: 'var(--brand)' }} />
         <h1 className="text-2xl font-bold tg-text">Profile Verification</h1>
@@ -71,6 +80,7 @@ export default function VerifyPage() {
           </label>
         </div>
       )}
+      </div>
     </div>
   );
 }

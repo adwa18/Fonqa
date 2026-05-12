@@ -27,6 +27,7 @@ router.get('/', authenticate, async (req, res, next) => {
           age: other.profile?.age,
           city: other.profile?.city,
           photo: other.photos[0]?.url || null,
+          isDeactivated: other.isDeactivated || false,
         },
         lastMessage: m.messages[0] || null,
       };

@@ -30,7 +30,7 @@ router.get('/status', authenticate, async (req, res, next) => {
 });
 
 // POST /api/verify/selfie — upload selfie for review
-router.post('/selfie', authenticate, upload.single('selfie'), async (req, res, next) => {
+router.post('/selfie', upload.single('selfie'), authenticate, async (req, res, next) => {
   try {
     const prisma = req.app.get('prisma');
 

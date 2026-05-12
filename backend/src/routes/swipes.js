@@ -1,4 +1,4 @@
-// src/routes/swipes.js
+// src/routes/swipes.js — Fonqa v3 (H)
 const router = require('express').Router();
 const { authenticate } = require('../middleware/auth');
 const { getCandidates, recordSwipe, getWhoLikedMe } = require('../services/matching');
@@ -29,16 +29,26 @@ router.post('/', authenticate, async (req, res, next) => {
     }
 
     const result = await recordSwipe(req.dbUser.id, receiverId, direction);
-    const io = req.app.get('io');
+    const io     = req.app.get('io');
     const prisma = req.app.get('prisma');
 
+    // (H) already liked this person
+    if (result.alreadyLiked) {
+      return res.json({
+        isMatch:      false,
+        alreadyLiked: true,
+        message:      'You already liked this person. Wait for their response!',
+      });
+    }
+
     if (result.isMatch) {
-      io.to(`user:${receiverId}`).emit('match', { matchId: result.matchId, with: { id: req.dbUser.id, firstName: req.dbUser.firstName } });
-      // Telegram notification
+      io.to(`user:${receiverId}`).emit('match', {
+        matchId: result.matchId,
+        with:    { id: req.dbUser.id, firstName: req.dbUser.firstName },
+      });
       const other = await prisma.user.findUnique({ where: { id: receiverId }, select: { telegramId: true } });
       if (other) notify.notifyMatch(other.telegramId, req.dbUser.firstName).catch(() => {});
     } else if (direction === 'like' || direction === 'superlike') {
-      // Notify the liked user
       const other = await prisma.user.findUnique({ where: { id: receiverId }, select: { telegramId: true } });
       if (other) notify.notifyLike(other.telegramId, req.dbUser.firstName).catch(() => {});
       io.to(`user:${receiverId}`).emit('new:like', { from: { id: req.dbUser.id, firstName: req.dbUser.firstName } });

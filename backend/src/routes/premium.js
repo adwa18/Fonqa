@@ -53,7 +53,7 @@ router.get('/status', authenticate, async (req, res, next) => {
 });
 
 // POST /api/premium/request — submit payment proof
-router.post('/request', authenticate, upload.single('screenshot'), async (req, res, next) => {
+router.post('/request', upload.single('screenshot'), authenticate, async (req, res, next) => {
   try {
     const prisma = req.app.get('prisma');
     const { method, reference } = req.body;

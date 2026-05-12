@@ -1,4 +1,4 @@
-// src/App.jsx
+// src/App.jsx — Fonqa v3
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
@@ -15,15 +15,16 @@ import MatchesPage       from './pages/MatchesPage';
 import ChatPage          from './pages/ChatPage';
 import ProfilePage       from './pages/ProfilePage';
 import EditProfilePage   from './pages/EditProfilePage';
+import UserProfilePage   from './pages/UserProfilePage';
 import SettingsPage      from './pages/SettingsPage';
 import PremiumPage       from './pages/PremiumPage';
 import VerifyPage        from './pages/VerifyPage';
 import ReferralPage      from './pages/ReferralPage';
 import AdminPage         from './pages/AdminPage';
 
-import BottomNav         from './components/BottomNav';
-import MatchCelebration  from './components/MatchCelebration';
-import PaywallModal      from './components/PaywallModal';
+import BottomNav          from './components/BottomNav';
+import MatchCelebration   from './components/MatchCelebration';
+import PaywallModal       from './components/PaywallModal';
 import VerificationBanner from './components/VerificationBanner';
 
 function Guard({ children }) {
@@ -68,26 +69,26 @@ export default function App() {
         <Toaster position="top-center" toastOptions={{
           style: { background: '#1a1a1a', color: '#f0f0f0', borderRadius: '12px', fontSize: '14px' },
         }} />
-
         <MatchCelebration />
         <PaywallModal />
         <VerificationBanner />
 
         <div className="flex-1 overflow-hidden relative">
           <Routes>
-            <Route path="/onboarding" element={<OnboardingPage />} />
-            <Route path="/"          element={<Guard><SwipePage /></Guard>} />
-            <Route path="/liked-me"  element={<Guard><LikedMePage /></Guard>} />
-            <Route path="/matches"   element={<Guard><MatchesPage /></Guard>} />
-            <Route path="/chat/:matchId" element={<Guard><ChatPage /></Guard>} />
-            <Route path="/profile"   element={<Guard><ProfilePage /></Guard>} />
-            <Route path="/profile/edit" element={<Guard><EditProfilePage /></Guard>} />
-            <Route path="/settings"  element={<Guard><SettingsPage /></Guard>} />
-            <Route path="/premium"   element={<Guard><PremiumPage /></Guard>} />
-            <Route path="/verify"    element={<Guard><VerifyPage /></Guard>} />
-            <Route path="/referral"  element={<Guard><ReferralPage /></Guard>} />
-            <Route path="/admin"     element={<Guard><AdminPage /></Guard>} />
-            <Route path="*"          element={<Navigate to="/" />} />
+            <Route path="/onboarding"      element={<OnboardingPage />} />
+            <Route path="/"                element={<Guard><SwipePage /></Guard>} />
+            <Route path="/liked-me"        element={<Guard><LikedMePage /></Guard>} />
+            <Route path="/matches"         element={<Guard><MatchesPage /></Guard>} />
+            <Route path="/chat/:matchId"   element={<Guard><ChatPage /></Guard>} />
+            <Route path="/profile"         element={<Guard><ProfilePage /></Guard>} />
+            <Route path="/profile/edit"    element={<Guard><EditProfilePage /></Guard>} />
+            <Route path="/user/:id"        element={<Guard><UserProfilePage /></Guard>} />
+            <Route path="/settings"        element={<Guard><SettingsPage /></Guard>} />
+            <Route path="/premium"         element={<Guard><PremiumPage /></Guard>} />
+            <Route path="/verify"          element={<Guard><VerifyPage /></Guard>} />
+            <Route path="/referral"        element={<Guard><ReferralPage /></Guard>} />
+            <Route path="/admin"           element={<Guard><AdminPage /></Guard>} />
+            <Route path="*"               element={<Navigate to="/" />} />
           </Routes>
         </div>
 

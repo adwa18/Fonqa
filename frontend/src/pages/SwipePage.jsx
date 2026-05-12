@@ -1,8 +1,8 @@
-// src/pages/SwipePage.jsx
+// src/pages/SwipePage.jsx — v3 (H: already-liked toast, F: gender locked)
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { Heart, X, Star, RefreshCw, Shield } from 'lucide-react';
+import { Heart, X, Star, RefreshCw } from 'lucide-react';
 import { swipeAPI } from '../services/api';
 import { useTelegram } from '../hooks/useTelegram';
 import useStore from '../store/useStore';
@@ -10,17 +10,17 @@ import useStore from '../store/useStore';
 const THRESHOLD = 90;
 
 function SwipeCard({ c, onSwipe, isTop }) {
-  const x = useMotionValue(0);
-  const rotate = useTransform(x, [-300, 0, 300], [-22, 0, 22]);
-  const likeOpacity = useTransform(x, [15, 80], [0, 1]);
-  const nopeOpacity = useTransform(x, [-80, -15], [1, 0]);
+  const x       = useMotionValue(0);
+  const rotate  = useTransform(x, [-300, 0, 300], [-22, 0, 22]);
+  const likeOp  = useTransform(x, [15, 80], [0, 1]);
+  const nopeOp  = useTransform(x, [-80, -15], [1, 0]);
   const [photo, setPhoto] = useState(0);
   const { haptic } = useTelegram();
 
   const handleDragEnd = useCallback((e, info) => {
-    if (info.offset.x > THRESHOLD) { triggerSwipe('like'); }
-    else if (info.offset.x < -THRESHOLD) { triggerSwipe('pass'); }
-    else { animate(x, 0, { type: 'spring', stiffness: 300, damping: 28 }); }
+    if (info.offset.x > THRESHOLD)        triggerSwipe('like');
+    else if (info.offset.x < -THRESHOLD)  triggerSwipe('pass');
+    else animate(x, 0, { type: 'spring', stiffness: 300, damping: 28 });
   }, [x]);
 
   const triggerSwipe = useCallback((dir) => {
@@ -30,18 +30,19 @@ function SwipeCard({ c, onSwipe, isTop }) {
   }, [c.id, onSwipe, haptic, x]);
 
   if (!isTop) return (
-    <div className="swipe-card" style={{ transform: 'scale(0.94) translateY(12px)', zIndex: 1, pointerEvents: 'none' }}>
+    <div className="swipe-card"
+      style={{ transform: 'scale(0.94) translateY(12px)', zIndex: 1, pointerEvents: 'none' }}>
       <div className="w-full h-full rounded-card" style={{ background: 'var(--surface)' }} />
     </div>
   );
 
   return (
     <motion.div className="swipe-card" style={{ x, rotate, zIndex: 10 }}
-      drag dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+      drag dragConstraints={{ left:0, right:0, top:0, bottom:0 }}
       dragElastic={0.75} onDragEnd={handleDragEnd} whileTap={{ scale: 1.015 }}>
 
-      <motion.div className="like-stamp" style={{ opacity: likeOpacity }}>LIKE ❤️</motion.div>
-      <motion.div className="nope-stamp" style={{ opacity: nopeOpacity }}>NOPE ✕</motion.div>
+      <motion.div className="like-stamp" style={{ opacity: likeOp }}>LIKE ❤️</motion.div>
+      <motion.div className="nope-stamp" style={{ opacity: nopeOp }}>NOPE ✕</motion.div>
 
       <div className="relative w-full h-full">
         {c.photos?.length > 0 ? (
@@ -49,11 +50,10 @@ function SwipeCard({ c, onSwipe, isTop }) {
             className="w-full h-full object-cover pointer-events-none" draggable={false} />
         ) : (
           <div className="w-full h-full fonqa-gradient flex items-center justify-center">
-            <span className="text-8xl">{c.gender === 'female' ? '👩' : '👨'}</span>
+            <span className="text-8xl">👤</span>
           </div>
         )}
 
-        {/* Photo nav */}
         {c.photos?.length > 1 && (
           <>
             <button className="absolute left-0 top-0 w-1/2 h-3/4 z-10"
@@ -68,37 +68,31 @@ function SwipeCard({ c, onSwipe, isTop }) {
           </>
         )}
 
-        {/* Boost indicator */}
         {c.isBoosted && (
-          <div className="absolute top-3 right-3 z-20 bg-yellow-500/90 text-black text-xs font-bold px-2 py-1 rounded-full">
+          <div className="absolute top-3 right-3 z-20 bg-yellow-400/90 text-black text-xs font-bold px-2 py-1 rounded-full">
             ⚡ Boosted
           </div>
         )}
 
-        {/* Info overlay */}
         <div className="glass absolute bottom-0 inset-x-0 p-5 z-20 pointer-events-none">
-          <div className="flex items-end gap-2">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-2xl font-bold text-white">{c.firstName}, {c.age}</h2>
-                {c.isVerified && <span className="text-blue-400 text-lg">✓</span>}
-              </div>
-              {(c.city || c.distanceKm != null) && (
-                <p className="text-white/80 text-sm mt-0.5">
-                  📍 {c.city}{c.distanceKm != null ? ` · ${c.distanceKm} km` : ''}
-                </p>
-              )}
-              {c.occupation && <p className="text-white/70 text-xs mt-0.5">💼 {c.occupation}</p>}
-              {c.bio && <p className="text-white/90 text-sm mt-2 line-clamp-2">{c.bio}</p>}
-              {c.interests?.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {c.interests.slice(0, 4).map(i => (
-                    <span key={i} className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full">{i}</span>
-                  ))}
-                </div>
-              )}
+          <h2 className="text-2xl font-bold text-white">
+            {c.firstName}, {c.age}
+            {c.isVerified && <span className="ml-2 text-blue-300 text-lg">✓</span>}
+          </h2>
+          {c.city && (
+            <p className="text-white/80 text-sm mt-0.5">
+              📍 {c.locationLabel || c.city}{c.distanceKm != null ? ` · ${c.distanceKm} km` : ''}
+            </p>
+          )}
+          {c.occupation && <p className="text-white/70 text-xs mt-0.5">💼 {c.occupation}</p>}
+          {c.bio && <p className="text-white/90 text-sm mt-2 line-clamp-2">{c.bio}</p>}
+          {c.interests?.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {c.interests.slice(0,4).map(i => (
+                <span key={i} className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full">{i}</span>
+              ))}
             </div>
-          </div>
+          )}
         </div>
       </div>
     </motion.div>
@@ -107,17 +101,16 @@ function SwipeCard({ c, onSwipe, isTop }) {
 
 export default function SwipePage() {
   const { candidates, setCandidates, removeCandidate, setNewMatch } = useStore();
-  const [loading, setLoading] = useState(false);
-  const [swiping, setSwiping] = useState(false);
+  const [loading, setLoading]   = useState(false);
+  const [swiping, setSwiping]   = useState(false);
 
   const fetch = useCallback(async () => {
     setLoading(true);
     try {
       const data = await swipeAPI.getCandidates();
       setCandidates(data.candidates || []);
-    } catch (err) {
-      toast.error('Could not load profiles');
-    } finally { setLoading(false); }
+    } catch (err) { toast.error('Could not load profiles'); }
+    finally { setLoading(false); }
   }, [setCandidates]);
 
   useEffect(() => { fetch(); }, [fetch]);
@@ -128,36 +121,36 @@ export default function SwipePage() {
     removeCandidate(id);
     try {
       const result = await swipeAPI.swipe(id, dir);
-      if (result.isMatch) {
+
+      // (H) already liked — show toast, don't count as swipe
+      if (result.alreadyLiked) {
+        toast('You already liked this person. Wait for their response! 😊', { icon: '💕', duration: 3000 });
+        // Re-add candidate to deck
+        const candidate = candidates.find(c => c.id === id);
+        if (candidate) setCandidates(prev => [candidate, ...prev.filter(c => c.id !== id)]);
+      } else if (result.isMatch) {
         const other = candidates.find(c => c.id === id);
         setNewMatch({ matchId: result.matchId, with: other });
       }
+
       if (candidates.length <= 2) fetch();
-    } catch (err) {
-      toast.error('Swipe failed');
-    } finally { setSwiping(false); }
-  }, [swiping, candidates, removeCandidate, setNewMatch, fetch]);
+    } catch { toast.error('Swipe failed'); }
+    finally { setSwiping(false); }
+  }, [swiping, candidates, removeCandidate, setNewMatch, setCandidates, fetch]);
 
   const top  = candidates[0];
   const next = candidates[1];
 
-  if (loading && candidates.length === 0) {
-    return (
-      <div className="flex flex-col h-full">
-        <div className="px-5 pt-4 pb-2">
-          <div className="h-7 w-24 rounded-xl bg-gray-800 animate-pulse" />
-        </div>
-        <div className="flex-1 px-4 py-2 relative">
-          <div className="w-full h-full rounded-card bg-gray-800 animate-pulse shimmer relative" />
-        </div>
-        <div className="flex justify-center gap-6 py-5">
-          {[52, 44, 52].map((s, i) => (
-            <div key={i} className="rounded-full bg-gray-800 animate-pulse" style={{ width: s, height: s }} />
-          ))}
-        </div>
+  if (loading && candidates.length === 0) return (
+    <div className="flex flex-col h-full">
+      <div className="px-5 pt-4 pb-2">
+        <div className="h-7 w-24 rounded-xl bg-gray-800 animate-pulse" />
       </div>
-    );
-  }
+      <div className="flex-1 px-4 py-2 relative">
+        <div className="w-full h-full rounded-card bg-gray-800 animate-pulse" />
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex flex-col h-full select-none">
@@ -176,7 +169,7 @@ export default function SwipePage() {
           <div className="flex flex-col items-center justify-center h-full text-center px-8">
             <span className="text-5xl mb-4">🌊</span>
             <h3 className="text-xl font-bold tg-text mb-2">You've seen everyone!</h3>
-            <p className="text-sm tg-hint mb-6">Try expanding your preferences to see more people.</p>
+            <p className="text-sm tg-hint mb-6">Try expanding your distance in settings.</p>
             <button onClick={fetch} className="px-6 py-3 rounded-2xl font-semibold text-white fonqa-gradient">
               Refresh deck
             </button>
