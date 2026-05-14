@@ -1,7 +1,11 @@
 // src/middleware/auth.js — Fonqa v3 (merged)
 const crypto = require('crypto');
 const logger = require('../utils/logger');
-const { processReferral } = require('../routes/referrals');
+//const { processReferral } = require('../routes/referrals');
+// remove require('../routes/referrals')
+const { processReferral } = require('../services/referralsService');
+// ... use processReferral(db, req.dbUser.id) as before
+
 const prisma = require('../lib/prisma'); // shared Prisma singleton
 
 // ─────────────────────────────────────────────────────────────────────────────
