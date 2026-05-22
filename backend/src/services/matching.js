@@ -2,7 +2,7 @@
 // (F) Gender-based discovery: males see females only, females see males only
 const { PrismaClient } = require('@prisma/client');
 const logger = require('../utils/logger');
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 
 const CANDIDATE_POOL = 80;
 const SERVE_BATCH    = 12;
