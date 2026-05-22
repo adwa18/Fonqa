@@ -17,9 +17,9 @@ COPY backend/package*.json ./backend/
 COPY backend/prisma.config.ts ./backend/
 RUN cd backend && npm install
 
-# ── 3. Prisma
+# ── 3. Prisma generate — dummy URL at build time, real URL injected at runtime
 COPY backend/prisma/ ./backend/prisma/
-RUN cd backend && npx prisma generate
+RUN cd backend && DATABASE_URL="postgresql://dummy:dummy@localhost/dummy" npx prisma generate
 
 # ── 4. Source
 COPY backend/src/ ./backend/src/
