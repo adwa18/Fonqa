@@ -68,7 +68,7 @@ router.post('/photo', uploadMiddleware, authenticate, async (req, res, next) => 
             { fetch_format: 'auto' },
           ],
           // Cloudinary AI moderation (provider-specific tag; adjust to your account/add-ons)
-          moderation: 'aws_rek',
+         // moderation: 'aws_rek',
           detection: 'adv_face',
         },
         (err, r) => (err ? reject(err) : resolve(r))
@@ -77,27 +77,27 @@ router.post('/photo', uploadMiddleware, authenticate, async (req, res, next) => 
     });
 
     // ── Parse moderation results
-    const moderation = result.moderation?.[0];
+   // const moderation = result.moderation?.[0];
     const faceData = result.info?.detection?.adv_face?.predictions?.[0];
 
-    let flagReason = null;
+   // let flagReason = null;
     let moderationData = {};
 
     // Check NSFW / violence (Rekognition style)
-    if (moderation?.status === 'rejected') {
-      const labels = moderation.response?.moderation_labels || [];
-      const hasNSFW = labels.some(l => ['Explicit Nudity', 'Nudity', 'Suggestive'].includes(l.name));
-      const hasViolence = labels.some(l => ['Violence', 'Graphic Violence'].includes(l.name));
-      flagReason = hasNSFW ? 'nsfw' : hasViolence ? 'violence' : 'moderation';
-      moderationData = { labels, status: moderation.status };
+   // if (moderation?.status === 'rejected') {
+   //   const labels = moderation.response?.moderation_labels || [];
+    //  const hasNSFW = labels.some(l => ['Explicit Nudity', 'Nudity', 'Suggestive'].includes(l.name));
+    //  const hasViolence = labels.some(l => ['Violence', 'Graphic Violence'].includes(l.name));
+    //  flagReason = hasNSFW ? 'nsfw' : hasViolence ? 'violence' : 'moderation';
+    //  moderationData = { labels, status: moderation.status };
 
-      await cloudinary.uploader.destroy(result.public_id).catch(() => { });
+     // await cloudinary.uploader.destroy(result.public_id).catch(() => { });
 
-      const msg = hasNSFW
-        ? 'Photo rejected: contains explicit or adult content.'
-        : 'Photo rejected: contains violent content.';
-      return res.status(400).json({ error: msg, code: flagReason.toUpperCase() });
-    }
+    //  const msg = hasNSFW
+     //   ? 'Photo rejected: contains explicit or adult content.'
+     //   : 'Photo rejected: contains violent content.';
+    //  return res.status(400).json({ error: msg, code: flagReason.toUpperCase() });
+  //  }
 
     // Check face detection — profile photos must contain a face
     const hasFace = faceData?.attributes?.real_face?.value === 'true' || !!faceData;
