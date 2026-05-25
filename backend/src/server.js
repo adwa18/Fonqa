@@ -8,7 +8,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
-const { PrismaClient } = require('@prisma/client');
+// const { PrismaClient } = require('@prisma/client');
 
 const logger = require('./utils/logger');
 const rateLimiter = require('./middleware/rateLimit');
@@ -31,7 +31,9 @@ const adminRoutes      = require('./routes/admin');
 
 const app = express();
 const server = http.createServer(app);
-const prisma = new PrismaClient();
+const prisma = require('./lib/prisma'); // path relative to src/server.js
+
+// const prisma = new PrismaClient();
 
 // ── Socket.io
 const io = new Server(server, {
