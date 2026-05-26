@@ -81,7 +81,7 @@ router.post('/photo', uploadMiddleware, authenticate, async (req, res, next) => 
   //  const faceData = result.info?.detection?.adv_face?.predictions?.[0];
 
    // let flagReason = null;
-  //  let moderationData = {};
+    let moderationData = {};
     
 
     // Check NSFW / violence (Rekognition style)
