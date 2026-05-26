@@ -82,7 +82,7 @@ router.post('/photo', uploadMiddleware, authenticate, async (req, res, next) => 
 
    // let flagReason = null;
   //  let moderationData = {};
-    const moderationsData = {};
+    
 
     // Check NSFW / violence (Rekognition style)
    // if (moderation?.status === 'rejected') {
@@ -114,6 +114,7 @@ router.post('/photo', uploadMiddleware, authenticate, async (req, res, next) => 
  //   }
 
     // Duplicate detection — compare phash with existing photos
+    const moderationsData = {};
     const existing = await prisma.photo.findMany({
       where: { userId, isSelfie: false },
       select: { publicId: true },
