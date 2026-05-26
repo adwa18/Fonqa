@@ -69,7 +69,7 @@ router.post('/photo', uploadMiddleware, authenticate, async (req, res, next) => 
           ],
           // Cloudinary AI moderation (provider-specific tag; adjust to your account/add-ons)
          // moderation: 'aws_rek',
-          detection: 'adv_face',
+         // detection: 'adv_face',
         },
         (err, r) => (err ? reject(err) : resolve(r))
       );
@@ -78,10 +78,11 @@ router.post('/photo', uploadMiddleware, authenticate, async (req, res, next) => 
 
     // ── Parse moderation results
    // const moderation = result.moderation?.[0];
-    const faceData = result.info?.detection?.adv_face?.predictions?.[0];
+  //  const faceData = result.info?.detection?.adv_face?.predictions?.[0];
 
    // let flagReason = null;
-    let moderationData = {};
+  //  let moderationData = {};
+    const moderationsData = {};
 
     // Check NSFW / violence (Rekognition style)
    // if (moderation?.status === 'rejected') {
@@ -100,17 +101,17 @@ router.post('/photo', uploadMiddleware, authenticate, async (req, res, next) => 
   //  }
 
     // Check face detection — profile photos must contain a face
-    const hasFace = faceData?.attributes?.real_face?.value === 'true' || !!faceData;
-    const faceScore = faceData?.attributes?.real_face?.confidence || 0;
-    moderationData = { ...moderationData, hasFace, faceScore };
+   // const hasFace = faceData?.attributes?.real_face?.value === 'true' || !!faceData;
+   // const faceScore = faceData?.attributes?.real_face?.confidence || 0;
+  //  moderationData = { ...moderationData, hasFace, faceScore };
 
-    if (!hasFace) {
-      await cloudinary.uploader.destroy(result.public_id).catch(() => { });
-      return res.status(400).json({
-        error: 'No face detected. Please upload a clear photo of your face.',
-        code: 'NO_FACE',
-      });
-    }
+   // if (!hasFace) {
+   //   await cloudinary.uploader.destroy(result.public_id).catch(() => { });
+   //   return res.status(400).json({
+   //     error: 'No face detected. Please upload a clear photo of your face.',
+   //     code: 'NO_FACE',
+  //    });
+ //   }
 
     // Duplicate detection — compare phash with existing photos
     const existing = await prisma.photo.findMany({
